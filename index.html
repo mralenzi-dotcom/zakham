@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>مؤشر زخم عقود الأوبشن</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;700&display=swap">
+<style>
+:root{--bg:#eef1f4;--panel:#fff;--ink:#14212e;--mute:#5b6b7a;--line:#d5dce3;--up:#17805a;--dn:#b3341f;--acc:#1f4e79;color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0f1720;--panel:#16212d;--ink:#e6edf3;--mute:#93a4b4;--line:#27374a;--up:#3ec28f;--dn:#ff7b63;--acc:#7db4e6;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#0f1720;--panel:#16212d;--ink:#e6edf3;--mute:#93a4b4;--line:#27374a;--up:#3ec28f;--dn:#ff7b63;--acc:#7db4e6;color-scheme:dark}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:400 16px/1.7 "IBM Plex Sans Arabic",system-ui,"Segoe UI",Tahoma,sans-serif}
+main{max-width:980px;margin:0 auto;padding:28px 18px 60px}
+h1{font-size:clamp(26px,5vw,38px);line-height:1.25;margin:0 0 6px;font-weight:700}
+.lead{color:var(--mute);margin:0 0 22px;max-width:60ch}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px;margin-bottom:18px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:12px}
+label{display:block;font-size:14px;color:var(--mute)}
+input[type=number]{width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink);font:inherit;direction:ltr;text-align:right}
+textarea{width:100%;min-height:110px;padding:10px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink);font:13px/1.5 ui-monospace,Menlo,Consolas,monospace;direction:ltr}
+.row{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}
+button,.file{padding:9px 16px;border-radius:6px;border:1px solid var(--acc);background:transparent;color:var(--acc);font:500 15px inherit;font-family:inherit;cursor:pointer}
+button.main{background:var(--acc);color:var(--panel)}
+button:focus-visible,.file:focus-within,input:focus-visible,textarea:focus-visible,tr:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+.file input{position:absolute;opacity:0;width:1px;height:1px}
+.file{position:relative;display:inline-block}
+.note{font-size:14px;color:var(--mute);margin:10px 0 0}
+.tablewrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;min-width:620px}
+th{font-weight:500;color:var(--mute);font-size:14px;text-align:right;padding:8px 10px;border-bottom:1px solid var(--line)}
+td{padding:10px;border-bottom:1px solid var(--line);vertical-align:middle}
+tbody tr{cursor:pointer}
+tbody tr:hover{background:color-mix(in srgb,var(--acc) 7%,transparent)}
+.num{direction:ltr;unicode-bidi:isolate;display:inline-block;font-variant-numeric:tabular-nums}
+.tk{font-weight:700;font-size:18px}
+.strip{display:flex;align-items:center;gap:3px;height:40px;direction:ltr}
+.cell{width:14px;border-radius:2px;flex:none}
+.cell.e{height:2px;background:var(--line)}
+.up{background:var(--up)}.dn{background:var(--dn)}
+.score{font-weight:700}
+.score.up{color:var(--up);background:none}.score.dn{color:var(--dn);background:none}
+.tag{font-size:13px;border:1px solid var(--acc);color:var(--acc);border-radius:99px;padding:0 9px;margin-inline-start:6px;white-space:nowrap}
+.detail td{background:color-mix(in srgb,var(--acc) 5%,transparent);font-size:14px}
+.detail table{min-width:0}
+.empty{color:var(--mute);padding:26px 4px;text-align:center}
+h2{font-size:19px;margin:0 0 10px}
+summary{cursor:pointer;font-weight:500}
+details[open] summary{margin-bottom:12px}
+@media (prefers-reduced-motion:no-preference){.cell{transition:height .25s}}
+</style>
+</head>
+<body>
+<main>
+<h1>زخم عقود الأوبشن</h1>
+<p class="lead">يجمع العقود التي تكرر عليها الشراء الكبير من جلسة إلى أخرى، ويعرض اتجاه كل سهم (كول أم بوت) وعدد الجلسات المتتالية. ثلاث جلسات فأكثر تستحق المتابعة.</p>
+
+<details class="panel" id="manual"><summary>إدخال يدوي وضبط الشروط</summary>
+<textarea id="csv" spellcheck="false" aria-label="بيانات CSV" placeholder="date,ticker,type,strike,expiry,volume,oi,price&#10;2026-11-05,NVDA,C,200,2026-12-18,4200,1800,3.4"></textarea>
+<div class="row">
+<button class="main" id="run">حلّل البيانات</button>
+<button id="demo">حمّل بيانات تجريبية</button>
+<label class="file">ارفع ملف CSV<input type="file" id="file" accept=".csv,.txt"></label>
+</div>
+<p class="note">الأعمدة: date, ticker, type (C أو P), strike, expiry, volume, oi, price. العلاوة = volume × price × 100.</p>
+<div class="grid" style="margin-top:14px">
+<label>أقل حجم للعقد<input type="number" id="mv" value="500" min="0"></label>
+<label>أقل نسبة Volume/OI<input type="number" id="ratio" value="1.5" min="0" step="0.1"></label>
+<label>أقل علاوة بالدولار<input type="number" id="mp" value="50000" min="0" step="10000"></label>
+<label>أقل جلسات للتنبيه<input type="number" id="ms" value="3" min="1"></label>
+</div>
+</details>
+
+<section class="panel" id="focus" aria-live="polite">
+<div class="row" style="margin:0 0 12px;align-items:center"><h2 style="margin:0">زخم السهم آخر 7 جلسات</h2><input id="sym" value="SPY" aria-label="رمز السهم" style="width:110px;padding:8px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink);font:inherit;direction:ltr;text-transform:uppercase"><span class="note" id="upd" style="margin:0"></span></div>
+<div id="fx"><div class="empty">لا بيانات بعد.</div></div>
+</section>
+
+<section class="panel" aria-live="polite">
+<h2>الأسهم حسب قوة الزخم</h2>
+<div class="tablewrap" id="out"><div class="empty">تُحمَّل البيانات تلقائياً عند توفرها. يمكنك أيضاً فتح «إدخال يدوي» وتجربة البيانات التجريبية.</div></div>
+<p class="note">الدرجة من −100 إلى +100: صافي علاوات الكول مقابل البوت في آخر جلسة، مضروباً في عامل الاستمرارية (يكتمل عند 5 جلسات). الأخضر كول، والأحمر بوت، وطول العمود يعكس حجم العلاوة. هذه قراءة تجريبية، ولم يثبت أن الزخم يسبق حركة السعر، وليست توصية دخول.</p>
+</section>
+</main>
+<script>
+(function(){
+var $=function(i){return document.getElementById(i)};
+var fmt=new Intl.NumberFormat('en',{notation:'compact',maximumFractionDigits:1});
+var P=function(x){return '$'+fmt.format(x)};
+function parse(t){
+  var L=t.trim().split(/\r?\n/);if(L.length<2)return[];
+  var h=L[0].split(',').map(function(s){return s.trim().toLowerCase()});
+  var ix=function(n){return h.indexOf(n)};
+  var c={d:ix('date'),t:ix('ticker'),y:ix('type'),k:ix('strike'),e:ix('expiry'),v:ix('volume'),o:ix('oi'),p:ix('price')};
+  if(Object.keys(c).some(function(k){return c[k]<0}))return null;
+  var r=[];
+  for(var i=1;i<L.length;i++){
+    var a=L[i].split(',').map(function(s){return s.trim()});
+    if(a.length<h.length)continue;
+    var row={d:a[c.d],t:a[c.t].toUpperCase(),y:a[c.y].toUpperCase()[0],k:+a[c.k],e:a[c.e],v:+a[c.v],o:+a[c.o],p:+a[c.p]};
+    if(row.d&&row.t&&(row.y==='C'||row.y==='P')&&isFinite(row.v+row.o+row.p))r.push(row);
+  }
+  return r;
+}
+function analyze(rows,o){
+  var dates=Array.from(new Set(rows.map(function(r){return r.d}))).sort();
+  var last=dates[dates.length-1],by={},q=[];
+  rows.forEach(function(r){
+    r.prem=r.v*r.p*100;
+    r.ok=r.v>=o.mv&&(r.o===0||r.v/r.o>=o.ratio)&&r.prem>=o.mp;
+    if(!r.ok)return;
+    var b=by[r.t]=by[r.t]||{};
+    var d=b[r.d]=b[r.d]||{c:0,p:0};
+    d[r.y==='C'?'c':'p']+=r.prem;
+    q.push(r);
+  });
+  var out=[];
+  Object.keys(by).forEach(function(t){
+    var days=dates.map(function(d){var x=by[t][d];return{d:d,net:x?x.c-x.p:0,tot:x?x.c+x.p:0,c:x?x.c:0,p:x?x.p:0}});
+    var L=days[days.length-1],s=Math.sign(L.net),n=0;
+    if(s!==0)for(var i=days.length-1;i>=0&&Math.sign(days[i].net)===s;i--)n++;
+    var score=L.tot?Math.round(100*(L.net/L.tot)*Math.min(n,5)/5):0;
+    out.push({t:t,days:days.slice(-10),streak:n,dir:s,score:score,net:L.net,last:last,q:q});
+  });
+  out.sort(function(a,b){return Math.abs(b.score)-Math.abs(a.score)});
+  return{list:out,dates:dates,last:last,q:q};
+}
+function strip(days,maxNet){
+  return '<div class="strip" role="img" aria-label="آخر '+days.length+' جلسات">'+days.map(function(d){
+    if(!d.net)return '<span class="cell e"></span>';
+    var h=Math.max(6,Math.round(34*Math.sqrt(Math.abs(d.net)/maxNet)));
+    return '<span class="cell '+(d.net>0?'up':'dn')+'" style="height:'+h+'px" title="'+d.d+' · '+P(d.net)+'"></span>';
+  }).join('')+'</div>';
+}
+function contracts(res,t){
+  var key=function(r){return r.t+r.y+r.k+r.e};
+  var map={};
+  res.q.filter(function(r){return r.t===t}).forEach(function(r){(map[key(r)]=map[key(r)]||{})[r.d]=r});
+  var rows=res.q.filter(function(r){return r.t===t&&r.d===res.last}).sort(function(a,b){return b.prem-a.prem});
+  if(!rows.length)return '<div class="empty">لا عقود مؤهلة في آخر جلسة.</div>';
+  return '<table><thead><tr><th>النوع</th><th>السترايك</th><th>الانتهاء</th><th>الحجم</th><th>OI</th><th>Vol/OI</th><th>العلاوة</th><th>جلسات متتالية</th></tr></thead><tbody>'+rows.map(function(r){
+    var m=map[key(r)],n=0;
+    for(var i=res.dates.length-1;i>=0&&m[res.dates[i]];i--)n++;
+    return '<tr><td class="'+(r.y==='C'?'score up':'score dn')+'">'+(r.y==='C'?'كول':'بوت')+'</td><td><span class="num">'+r.k+'</span></td><td><span class="num">'+r.e+'</span></td><td><span class="num">'+fmt.format(r.v)+'</span></td><td><span class="num">'+fmt.format(r.o)+'</span></td><td><span class="num">'+(r.o?(r.v/r.o).toFixed(1):'جديد')+'</span></td><td><span class="num">'+P(r.prem)+'</span></td><td><span class="num">'+n+'</span></td></tr>';
+  }).join('')+'</tbody></table>';
+}
+function render(res,ms){
+  var el=$('out');
+  if(!res.list.length){el.innerHTML='<div class="empty">لا عقود تحقق الشروط. خفّف الحدود وأعد التحليل.</div>';return}
+  var maxNet=Math.max.apply(null,res.list.map(function(x){return Math.max.apply(null,x.days.map(function(d){return Math.abs(d.net)}))}))||1;
+  el.innerHTML='<table><thead><tr><th>السهم</th><th>آخر الجلسات</th><th>جلسات متتالية</th><th>صافي العلاوة</th><th>الدرجة</th></tr></thead><tbody>'+res.list.map(function(x,i){
+    var c=x.dir>0?'up':x.dir<0?'dn':'';
+    return '<tr tabindex="0" data-i="'+i+'" aria-expanded="false"><td><span class="tk">'+x.t+'</span>'+(x.streak>=ms?'<span class="tag">تستحق المتابعة</span>':'')+'</td><td>'+strip(x.days,maxNet)+'</td><td><span class="num">'+x.streak+'</span></td><td><span class="num">'+(x.net<0?'−':'')+P(Math.abs(x.net))+'</span></td><td class="score '+c+'"><span class="num">'+(x.score>0?'+':x.score<0?'−':'')+Math.abs(x.score)+'</span></td></tr>';
+  }).join('')+'</tbody></table>';
+  var toggle=function(tr){
+    var nx=tr.nextElementSibling;
+    if(nx&&nx.className==='detail'){nx.remove();tr.setAttribute('aria-expanded','false');return}
+    var d=document.createElement('tr');d.className='detail';
+    d.innerHTML='<td colspan="5">'+contracts(res,res.list[+tr.dataset.i].t)+'</td>';
+    tr.after(d);tr.setAttribute('aria-expanded','true');
+  };
+  el.querySelectorAll('tbody tr[data-i]').forEach(function(tr){
+    tr.addEventListener('click',function(){$('sym').value=res.list[+tr.dataset.i].t;focus();toggle(tr)});
+    tr.addEventListener('keydown',function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();toggle(tr)}});
+  });
+}
+var CUR=null;
+function focus(){
+  var res=CUR,fx=$('fx'),sym=$('sym').value.trim().toUpperCase();
+  if(!res)return;
+  $('upd').textContent='آخر جلسة في البيانات: '+res.last;
+  var x=res.list.filter(function(i){return i.t===sym})[0];
+  if(!x){fx.innerHTML='<div class="empty">لا عقود مؤهلة للسهم '+sym+' بهذه الشروط.</div>';return}
+  var d=x.days.slice(-7),tc=0,tp=0;
+  d.forEach(function(z){tc+=z.c;tp+=z.p});
+  var mx=Math.max.apply(null,d.map(function(z){return Math.max(z.c,z.p)}))||1;
+  var cols=d.map(function(z){
+    var hc=Math.round(70*z.c/mx),hp=Math.round(70*z.p/mx);
+    return '<div style="flex:1;min-width:0;text-align:center"><div style="height:74px;display:flex;align-items:flex-end;justify-content:center;border-bottom:1px solid var(--line)"><div class="up" style="width:60%;height:'+hc+'px;border-radius:3px 3px 0 0" title="كول '+P(z.c)+'"></div></div><div style="height:74px;display:flex;align-items:flex-start;justify-content:center"><div class="dn" style="width:60%;height:'+hp+'px;border-radius:0 0 3px 3px" title="بوت '+P(z.p)+'"></div></div><div class="note num" style="margin:4px 0 0;font-size:12px">'+z.d.slice(5)+'</div></div>';
+  }).join('');
+  var side=x.dir>0?'شراء كول':'شراء بوت';
+  var txt=x.dir?sym+': زخم '+side+' على مدى '+x.streak+' جلسات متتالية'+(x.streak>=+$('ms').value?' (تستحق المتابعة)':''):sym+': لا اتجاه واضح في آخر جلسة.';
+  fx.innerHTML='<p class="'+(x.dir>0?'score up':x.dir<0?'score dn':'')+'" style="font-size:20px;margin:0 0 12px">'+txt+'</p><div style="display:flex;gap:6px;direction:ltr">'+cols+'</div><p class="note">خلال '+d.length+' جلسات: كول '+P(tc)+' مقابل بوت '+P(tp)+' — الغلبة '+(tc>tp?'للكول':tp>tc?'للبوت':'متعادلة')+'. الأعمدة العلوية كول والسفلية بوت.</p>';
+}
+function run(){
+  var rows=parse($('csv').value);
+  if(rows===null){$('out').innerHTML='<div class="empty">الأعمدة ناقصة. تأكد من: date, ticker, type, strike, expiry, volume, oi, price.</div>';return}
+  if(!rows.length){$('out').innerHTML='<div class="empty">لا توجد صفوف صالحة.</div>';return}
+  CUR=analyze(rows,{mv:+$('mv').value,ratio:+$('ratio').value,mp:+$('mp').value});render(CUR,+$('ms').value);focus();
+}
+function demo(){
+  var s=7;function R(){s=(s*16807)%2147483647;return s/2147483647}
+  var T=[['NVDA',200,1,0.9],['TSLA',250,-1,0.7],['SPY',600,1,0.5],['AAPL',230,0.4,0.2],['AMD',160,-0.5,0.3],['QQQ',520,0.8,0.4]];
+  var ds=[],d=new Date();
+  while(ds.length<7){d.setDate(d.getDate()-1);if(d.getDay()%6)ds.unshift(d.toISOString().slice(0,10))}
+  var exp=new Date();exp.setDate(exp.getDate()+35);exp=exp.toISOString().slice(0,10);
+  var out=['date,ticker,type,strike,expiry,volume,oi,price'];
+  T.forEach(function(t,ti){ds.forEach(function(day,di){
+    var active=di>=7-(ti===0?5:ti===1?3:ti===2?4:1);
+    [0,1].forEach(function(j){['C','P'].forEach(function(ty){
+      var bias=t[2]>0?(ty==='C'?1:0.2):(ty==='P'?1:0.2);
+      var big=active&&R()<t[3]+0.2;
+      var v=Math.round((big?2500:300)*bias*(0.6+R()));
+      var oi=Math.round(900*(0.5+R()));
+      out.push([day,t[0],ty,t[1]+(j?10:-10),exp,v,oi,(1.5+R()*3).toFixed(2)].join(','));
+    })});
+  })});
+  $('csv').value=out.join('\n');run();
+}
+$('sym').addEventListener('input',focus);
+$('run').addEventListener('click',run);
+$('demo').addEventListener('click',demo);
+$('file').addEventListener('change',function(e){
+  var f=e.target.files[0];if(!f)return;
+  var r=new FileReader();r.onload=function(){$('csv').value=r.result;run()};r.readAsText(f);
+});
+fetch('data/options_history.csv?'+Date.now()).then(function(r){if(!r.ok)throw 0;return r.text()}).then(function(t){if(t.trim().split('\n').length>1){$('csv').value=t;run()}}).catch(function(){});
+})();
+</script>
+</body>
+</html>
