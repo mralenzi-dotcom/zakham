@@ -7,7 +7,8 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT = os.path.join(ROOT, "data", "options_history.csv")
 COLS = ["date", "ticker", "type", "strike", "expiry", "volume", "oi", "price"]
 MAX_DAYS, KEEP_DAYS = 45, 30     # أبعد انتهاء يُجمع، ومدة الاحتفاظ بالتاريخ
-MIN_VOL, MIN_PREM = 100, 10000   # لا نخزّن إلا العقود المؤثرة لإبقاء الملف صغيراً
+MIN_VOL, MIN_PREM = 100, 10000
+MIN_DTE = 4                      # نستبعد العقود التي تنتهي خلال 3 أيام أو أقل (0DTE تضخّم القراءة)   # لا نخزّن إلا العقود المؤثرة لإبقاء الملف صغيراً
 OCC = re.compile(r"^(.+?)(\d{6})([CP])(\d{8})$")
 TODAY = dt.datetime.now(ZoneInfo("America/New_York")).date()
 
@@ -62,7 +63,7 @@ def main():
     new = []
     for s in syms:
         for t, typ, k, exp, v, oi, p in get_rows(s):
-            if 0 <= (exp - TODAY).days <= MAX_DAYS and v >= MIN_VOL and v * p * 100 >= MIN_PREM:
+            if MIN_DTE <= (exp - TODAY).days <= MAX_DAYS and v >= MIN_VOL and v * p * 100 >= MIN_PREM:
                 new.append([TODAY.isoformat(), t, typ, k, exp.isoformat(), v, oi, p])
     if not new:
         print("لا بيانات جديدة؛ لن يُعدَّل الملف.")
