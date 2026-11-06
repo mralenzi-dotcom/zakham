@@ -69,6 +69,7 @@ details[open] summary{margin-bottom:12px}
 <label>أقل نسبة Volume/OI<input type="number" id="ratio" value="1.5" min="0" step="0.1"></label>
 <label>أقل علاوة بالدولار<input type="number" id="mp" value="50000" min="0" step="10000"></label>
 <label>أقل جلسات للتنبيه<input type="number" id="ms" value="3" min="1"></label>
+<label>أقل أيام حتى الانتهاء<input type="number" id="dte" value="4" min="0"></label>
 </div>
 </details>
 
@@ -108,7 +109,7 @@ function analyze(rows,o){
   var last=dates[dates.length-1],by={},q=[];
   rows.forEach(function(r){
     r.prem=r.v*r.p*100;
-    r.ok=r.v>=o.mv&&(r.o===0||r.v/r.o>=o.ratio)&&r.prem>=o.mp;
+    r.ok=(Date.parse(r.e)-Date.parse(r.d))/864e5>=o.dte&&r.v>=o.mv&&(r.o===0||r.v/r.o>=o.ratio)&&r.prem>=o.mp;
     if(!r.ok)return;
     var b=by[r.t]=by[r.t]||{};
     var d=b[r.d]=b[r.d]||{c:0,p:0};
@@ -166,6 +167,8 @@ function render(res,ms){
   });
 }
 var CUR=null;
+function seq(n){return n===1?'جلسة واحدة':n===2?'جلستين متتاليتين':n+' جلسات متتالية'}
+function cnt(n){return n===1?'جلسة واحدة':n===2?'جلستين':n+' جلسات'}
 function focus(){
   var res=CUR,fx=$('fx'),sym=$('sym').value.trim().toUpperCase();
   if(!res)return;
@@ -177,17 +180,17 @@ function focus(){
   var mx=Math.max.apply(null,d.map(function(z){return Math.max(z.c,z.p)}))||1;
   var cols=d.map(function(z){
     var hc=Math.round(70*z.c/mx),hp=Math.round(70*z.p/mx);
-    return '<div style="flex:1;min-width:0;text-align:center"><div style="height:74px;display:flex;align-items:flex-end;justify-content:center;border-bottom:1px solid var(--line)"><div class="up" style="width:60%;height:'+hc+'px;border-radius:3px 3px 0 0" title="كول '+P(z.c)+'"></div></div><div style="height:74px;display:flex;align-items:flex-start;justify-content:center"><div class="dn" style="width:60%;height:'+hp+'px;border-radius:0 0 3px 3px" title="بوت '+P(z.p)+'"></div></div><div class="note num" style="margin:4px 0 0;font-size:12px">'+z.d.slice(5)+'</div></div>';
+    return '<div style="flex:1;min-width:0;text-align:center"><div style="height:74px;display:flex;align-items:flex-end;justify-content:center;border-bottom:1px solid var(--line)"><div class="up" style="width:60%;max-width:56px;height:'+hc+'px;border-radius:3px 3px 0 0" title="كول '+P(z.c)+'"></div></div><div style="height:74px;display:flex;align-items:flex-start;justify-content:center"><div class="dn" style="width:60%;max-width:56px;height:'+hp+'px;border-radius:0 0 3px 3px" title="بوت '+P(z.p)+'"></div></div><div class="note num" style="margin:4px 0 0;font-size:12px">'+z.d.slice(5)+'</div></div>';
   }).join('');
   var side=x.dir>0?'شراء كول':'شراء بوت';
-  var txt=x.dir?sym+': زخم '+side+' على مدى '+x.streak+' جلسات متتالية'+(x.streak>=+$('ms').value?' (تستحق المتابعة)':''):sym+': لا اتجاه واضح في آخر جلسة.';
-  fx.innerHTML='<p class="'+(x.dir>0?'score up':x.dir<0?'score dn':'')+'" style="font-size:20px;margin:0 0 12px">'+txt+'</p><div style="display:flex;gap:6px;direction:ltr">'+cols+'</div><p class="note">خلال '+d.length+' جلسات: كول '+P(tc)+' مقابل بوت '+P(tp)+' — الغلبة '+(tc>tp?'للكول':tp>tc?'للبوت':'متعادلة')+'. الأعمدة العلوية كول والسفلية بوت.</p>';
+  var txt=x.dir?sym+': زخم '+side+' على مدى '+seq(x.streak)+(x.streak>=+$('ms').value?' (تستحق المتابعة)':''):sym+': لا اتجاه واضح في آخر جلسة.';
+  fx.innerHTML='<p class="'+(x.dir>0?'score up':x.dir<0?'score dn':'')+'" style="font-size:20px;margin:0 0 12px">'+txt+'</p><div style="display:flex;gap:6px;direction:ltr">'+cols+'</div><p class="note">خلال '+cnt(d.length)+': كول '+P(tc)+' مقابل بوت '+P(tp)+' — الغلبة '+(tc>tp?'للكول':tp>tc?'للبوت':'متعادلة')+'. الأعمدة العلوية كول والسفلية بوت.</p>';
 }
 function run(){
   var rows=parse($('csv').value);
   if(rows===null){$('out').innerHTML='<div class="empty">الأعمدة ناقصة. تأكد من: date, ticker, type, strike, expiry, volume, oi, price.</div>';return}
   if(!rows.length){$('out').innerHTML='<div class="empty">لا توجد صفوف صالحة.</div>';return}
-  CUR=analyze(rows,{mv:+$('mv').value,ratio:+$('ratio').value,mp:+$('mp').value});render(CUR,+$('ms').value);focus();
+  CUR=analyze(rows,{mv:+$('mv').value,ratio:+$('ratio').value,mp:+$('mp').value,dte:+$('dte').value});render(CUR,+$('ms').value);focus();
 }
 function demo(){
   var s=7;function R(){s=(s*16807)%2147483647;return s/2147483647}
