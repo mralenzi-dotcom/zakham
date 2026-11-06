@@ -1,0 +1,23 @@
+name: collect-options
+on:
+  schedule:
+    - cron: "30 17 * * 1-5"
+    - cron: "30 22 * * 1-5"
+  workflow_dispatch: {}
+permissions:
+  contents: write
+concurrency: collect
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install yfinance
+      - run: python scripts/collect.py
+      - run: |
+          git config user.name "options-bot"
+          git config user.email "bot@users.noreply.github.com"
+          git add data
+          git diff --cached --quiet || (git commit -m "data $(date -u +%F-%H%M)" && git push)
