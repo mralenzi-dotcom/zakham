@@ -1,0 +1,84 @@
+"""يجمع لقطة من سلاسل الأوبشن (Cboe المجاني، وyfinance احتياطاً)
+ويضيفها إلى data/options_history.csv. تعيد اللقطةُ في اليوم نفسه كتابةَ سابقتها."""
+import csv, datetime as dt, json, os, re, urllib.request
+from zoneinfo import ZoneInfo
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+OUT = os.path.join(ROOT, "data", "options_history.csv")
+COLS = ["date", "ticker", "type", "strike", "expiry", "volume", "oi", "price"]
+MAX_DAYS, KEEP_DAYS = 45, 30     # أبعد انتهاء يُجمع، ومدة الاحتفاظ بالتاريخ
+MIN_VOL, MIN_PREM = 100, 10000   # لا نخزّن إلا العقود المؤثرة لإبقاء الملف صغيراً
+OCC = re.compile(r"^(.+?)(\d{6})([CP])(\d{8})$")
+TODAY = dt.datetime.now(ZoneInfo("America/New_York")).date()
+
+
+def from_cboe(sym):
+    url = f"https://cdn.cboe.com/api/global/delayed_quotes/options/{sym}.json"
+    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+    with urllib.request.urlopen(req, timeout=60) as r:
+        opts = json.load(r)["data"]["options"]
+    rows = []
+    for o in opts:
+        m = OCC.match(o.get("option", ""))
+        if not m:
+            continue
+        exp = dt.datetime.strptime(m.group(2), "%y%m%d").date()
+        price = o.get("last_trade_price") or 0
+        rows.append((sym, m.group(3), int(m.group(4)) / 1000, exp,
+                     int(o.get("volume") or 0), int(o.get("open_interest") or 0), float(price)))
+    return rows
+
+
+def from_yf(sym):
+    import yfinance as yf
+    tk, rows = yf.Ticker(sym), []
+    for e in tk.options:
+        exp = dt.date.fromisoformat(e)
+        if (exp - TODAY).days > MAX_DAYS:
+            continue
+        ch = tk.option_chain(e)
+        for typ, df in (("C", ch.calls), ("P", ch.puts)):
+            for r in df.itertuples():
+                v = 0 if r.volume != r.volume else int(r.volume)
+                oi = 0 if r.openInterest != r.openInterest else int(r.openInterest)
+                rows.append((sym, typ, float(r.strike), exp, v, oi, float(r.lastPrice)))
+    return rows
+
+
+def get_rows(sym):
+    for fn in (from_cboe, from_yf):
+        try:
+            rows = fn(sym)
+            if rows:
+                print(sym, fn.__name__, len(rows))
+                return rows
+        except Exception as ex:
+            print(sym, fn.__name__, "فشل:", ex)
+    return []
+
+
+def main():
+    syms = [s.strip().upper() for s in open(os.path.join(ROOT, "tickers.txt")) if s.strip()]
+    new = []
+    for s in syms:
+        for t, typ, k, exp, v, oi, p in get_rows(s):
+            if 0 <= (exp - TODAY).days <= MAX_DAYS and v >= MIN_VOL and v * p * 100 >= MIN_PREM:
+                new.append([TODAY.isoformat(), t, typ, k, exp.isoformat(), v, oi, p])
+    if not new:
+        print("لا بيانات جديدة؛ لن يُعدَّل الملف.")
+        return
+    old = []
+    if os.path.exists(OUT):
+        with open(OUT, newline="") as f:
+            old = list(csv.reader(f))[1:]
+    cutoff = (TODAY - dt.timedelta(days=KEEP_DAYS)).isoformat()
+    keep = [r for r in old if r[0] != TODAY.isoformat() and r[0] >= cutoff]
+    with open(OUT, "w", newline="") as f:
+        w = csv.writer(f)
+        w.writerow(COLS)
+        w.writerows(sorted(keep + new))
+    print("تم حفظ", len(new), "عقداً لتاريخ", TODAY)
+
+
+if __name__ == "__main__":
+    main()
