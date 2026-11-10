@@ -10,7 +10,21 @@ MAX_DAYS, KEEP_DAYS = 45, 30     # أبعد انتهاء يُجمع، ومدة �
 MIN_VOL, MIN_PREM = 100, 10000
 MIN_DTE = 4                      # نستبعد العقود التي تنتهي خلال 3 أيام أو أقل (0DTE تضخّم القراءة)   # لا نخزّن إلا العقود المؤثرة لإبقاء الملف صغيراً
 OCC = re.compile(r"^(.+?)(\d{6})([CP])(\d{8})$")
-TODAY = dt.datetime.now(ZoneInfo("America/New_York")).date()
+
+def session_date(now=None):
+    """تاريخ الجلسة التي تخصها البيانات (بتوقيت نيويورك).
+    قبل افتتاح 9:30 ص تكون بيانات Cboe ما زالت لإغلاق اليوم السابق، فننسبها إليه،
+    ونتخطى السبت والأحد. هكذا لا يُخطئ التاريخ حتى لو تأخر التشغيل المجدول ساعات."""
+    now = now or dt.datetime.now(ZoneInfo("America/New_York"))
+    d = now.date()
+    if now.time() < dt.time(9, 30):
+        d -= dt.timedelta(days=1)
+    while d.weekday() >= 5:
+        d -= dt.timedelta(days=1)
+    return d
+
+
+TODAY = session_date()
 
 
 def from_cboe(sym):
