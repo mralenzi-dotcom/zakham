@@ -5,7 +5,7 @@ from zoneinfo import ZoneInfo
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT = os.path.join(ROOT, "data", "options_history.csv")
-COLS = ["date", "ticker", "type", "strike", "expiry", "volume", "oi", "price", "spot", "delta"]
+COLS = ["date", "ticker", "type", "strike", "expiry", "volume", "oi", "price", "spot", "delta", "ts", "final"]
 MAX_DAYS, KEEP_DAYS = 45, 30     # أبعد انتهاء يُجمع، ومدة الاحتفاظ بالتاريخ
 MIN_VOL, MIN_PREM = 100, 10000
 MIN_DTE = 4                      # نستبعد العقود التي تنتهي خلال 3 أيام أو أقل (0DTE تضخّم القراءة)   # لا نخزّن إلا العقود المؤثرة لإبقاء الملف صغيراً
@@ -80,7 +80,16 @@ def get_rows(sym):
     return [], None
 
 
+def snapshot_info():
+    """وقت اللقطة بتوقيت نيويورك، وعلامة final=1 إذا كانت بعد إغلاق السوق (مع هامش التأخير 15 دقيقة)
+    أو قبل الافتتاح أو في عطلة نهاية الأسبوع، أي أنها تمثل إغلاق الجلسة لا منتصفها."""
+    now = dt.datetime.now(ZoneInfo("America/New_York"))
+    in_session = now.weekday() < 5 and dt.time(9, 30) <= now.time() < dt.time(16, 15)
+    return now.isoformat(timespec="minutes"), 0 if in_session else 1
+
+
 def main():
+    ts, final = snapshot_info()
     syms = [s.strip().upper() for s in open(os.path.join(ROOT, "tickers.txt")) if s.strip()]
     new = []
     for s in syms:
@@ -89,7 +98,7 @@ def main():
         for t, typ, k, exp, v, oi, p, dl in rows:
             if MIN_DTE <= (exp - TODAY).days <= MAX_DAYS and v >= MIN_VOL and v * p * 100 >= MIN_PREM:
                 dl = round(float(dl), 4) if dl not in (None, "") else ""
-                new.append([TODAY.isoformat(), t, typ, k, exp.isoformat(), v, oi, p, spot, dl])
+                new.append([TODAY.isoformat(), t, typ, k, exp.isoformat(), v, oi, p, spot, dl, ts, final])
     if not new:
         print("لا بيانات جديدة؛ لن يُعدَّل الملف.")
         return
@@ -97,14 +106,14 @@ def main():
     if os.path.exists(OUT):
         with open(OUT, newline="") as f:
             old = list(csv.reader(f))[1:]
-        old = [r + [""] * (len(COLS) - len(r)) for r in old]   # صفوف قديمة بلا spot/delta
+        old = [r + [""] * (len(COLS) - len(r)) for r in old]   # صفوف قديمة بلا spot/delta/ts/final
     cutoff = (TODAY - dt.timedelta(days=KEEP_DAYS)).isoformat()
     keep = [r for r in old if r[0] != TODAY.isoformat() and r[0] >= cutoff]
     with open(OUT, "w", newline="") as f:
         w = csv.writer(f)
         w.writerow(COLS)
         w.writerows(sorted(keep + new))
-    print("تم حفظ", len(new), "عقداً لتاريخ", TODAY)
+    print("تم حفظ", len(new), "عقداً لتاريخ", TODAY, "| وقت اللقطة:", ts, "| لقطة نهائية:", bool(final))
 
 
 if __name__ == "__main__":
