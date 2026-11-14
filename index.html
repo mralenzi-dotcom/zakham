@@ -70,6 +70,8 @@ details[open] summary{margin-bottom:12px}
 <label>أقل علاوة بالدولار<input type="number" id="mp" value="50000" min="0" step="10000"></label>
 <label>أقل جلسات للتنبيه<input type="number" id="ms" value="3" min="1"></label>
 <label>أقل أيام حتى الانتهاء<input type="number" id="dte" value="4" min="0"></label>
+<label>أقل حجم إجمالي لحساب الدرجة ($)<input type="number" id="mt" value="30000000" min="0" step="5000000"></label>
+<label>حد التوازن (٪ من الإجمالي)<input type="number" id="bal" value="15" min="0" max="100"></label>
 </div>
 </details>
 
@@ -81,7 +83,7 @@ details[open] summary{margin-bottom:12px}
 <section class="panel" aria-live="polite">
 <h2>الأسهم حسب قوة الزخم</h2>
 <div class="tablewrap" id="out"><div class="empty">تُحمَّل البيانات تلقائياً عند توفرها. يمكنك أيضاً فتح «إدخال يدوي» وتجربة البيانات التجريبية.</div></div>
-<p class="note">الدرجة من −100 إلى +100: صافي علاوات الكول مقابل البوت في آخر جلسة، مضروباً في عامل الاستمرارية (يكتمل عند 5 جلسات). الأخضر كول، والأحمر بوت، وطول العمود يعكس حجم العلاوة. هذه قراءة تجريبية، ولم يثبت أن الزخم يسبق حركة السعر، وليست توصية دخول.</p>
+<p class="note">الدرجة من −100 إلى +100: صافي علاوات الكول مقابل البوت في آخر جلسة، مضروباً في عامل الاستمرارية (يكتمل عند 5 جلسات). إذا كان الفرق أقل من حد التوازن يُسمّى السهم «متوازن»، وإذا كان الحجم الإجمالي أقل من الحد الأدنى فلا تُحسب درجة. الأخضر كول، والأحمر بوت، وطول العمود يعكس حجم العلاوة. هذه قراءة تجريبية، ولم يثبت أن الزخم يسبق حركة السعر، وليست توصية دخول.</p>
 </section>
 </main>
 <script>
@@ -119,12 +121,15 @@ function analyze(rows,o){
   var out=[];
   Object.keys(by).forEach(function(t){
     var days=dates.map(function(d){var x=by[t][d];return{d:d,net:x?x.c-x.p:0,tot:x?x.c+x.p:0,c:x?x.c:0,p:x?x.p:0}});
-    var L=days[days.length-1],s=Math.sign(L.net),n=0;
+    var L=days[days.length-1],n=0;
+    var low=L.tot<o.mt,bal=!low&&L.tot>0&&Math.abs(L.net)/L.tot<o.bal;
+    var s=bal?0:Math.sign(L.net);
     if(s!==0)for(var i=days.length-1;i>=0&&Math.sign(days[i].net)===s;i--)n++;
-    var score=L.tot?Math.round(100*(L.net/L.tot)*Math.min(n,5)/5):0;
-    out.push({t:t,days:days.slice(-10),streak:n,dir:s,score:score,net:L.net,last:last,q:q});
+    var score=low?null:(L.tot&&s?Math.round(100*(L.net/L.tot)*Math.min(n,5)/5):0);
+    out.push({t:t,days:days.slice(-10),streak:n,dir:s,score:score,low:low,bal:bal,tot:L.tot,net:L.net,last:last,q:q});
   });
-  out.sort(function(a,b){return Math.abs(b.score)-Math.abs(a.score)});
+  var ab=function(x){return x.score===null?-1:Math.abs(x.score)};
+  out.sort(function(a,b){return ab(b)-ab(a)});
   return{list:out,dates:dates,last:last,q:q};
 }
 function strip(days,maxNet){
@@ -152,7 +157,7 @@ function render(res,ms){
   var maxNet=Math.max.apply(null,res.list.map(function(x){return Math.max.apply(null,x.days.map(function(d){return Math.abs(d.net)}))}))||1;
   el.innerHTML='<table><thead><tr><th>السهم</th><th>آخر الجلسات</th><th>جلسات متتالية</th><th>صافي العلاوة</th><th>الدرجة</th></tr></thead><tbody>'+res.list.map(function(x,i){
     var c=x.dir>0?'up':x.dir<0?'dn':'';
-    return '<tr tabindex="0" data-i="'+i+'" aria-expanded="false"><td><span class="tk">'+x.t+'</span>'+(x.streak>=ms?'<span class="tag">تستحق المتابعة</span>':'')+'</td><td>'+strip(x.days,maxNet)+'</td><td><span class="num">'+x.streak+'</span></td><td><span class="num">'+(x.net<0?'−':'')+P(Math.abs(x.net))+'</span></td><td class="score '+c+'"><span class="num">'+(x.score>0?'+':x.score<0?'−':'')+Math.abs(x.score)+'</span></td></tr>';
+    return '<tr tabindex="0" data-i="'+i+'" aria-expanded="false"><td><span class="tk">'+x.t+'</span>'+(x.low?'<span class="tag" style="border-color:var(--mute);color:var(--mute)">حجم صغير</span>':x.bal?'<span class="tag" style="border-color:var(--mute);color:var(--mute)">متوازن</span>':x.streak>=ms?'<span class="tag">تستحق المتابعة</span>':'')+'</td><td>'+strip(x.days,maxNet)+'</td><td><span class="num">'+x.streak+'</span></td><td><span class="num">'+(x.net<0?'−':'')+P(Math.abs(x.net))+'</span></td><td class="score '+c+'">'+(x.score===null?'<span title="الحجم الإجمالي أقل من الحد، فلا تُحسب درجة">—</span>':'<span class="num">'+(x.score>0?'+':x.score<0?'−':'')+Math.abs(x.score)+'</span>')+'</td></tr>';
   }).join('')+'</tbody></table>';
   var toggle=function(tr){
     var nx=tr.nextElementSibling;
@@ -183,14 +188,14 @@ function focus(){
     return '<div style="flex:1;min-width:0;text-align:center"><div style="height:74px;display:flex;align-items:flex-end;justify-content:center;border-bottom:1px solid var(--line)"><div class="up" style="width:60%;max-width:56px;height:'+hc+'px;border-radius:3px 3px 0 0" title="كول '+P(z.c)+'"></div></div><div style="height:74px;display:flex;align-items:flex-start;justify-content:center"><div class="dn" style="width:60%;max-width:56px;height:'+hp+'px;border-radius:0 0 3px 3px" title="بوت '+P(z.p)+'"></div></div><div class="note num" style="margin:4px 0 0;font-size:12px">'+z.d.slice(5)+'</div></div>';
   }).join('');
   var side=x.dir>0?'شراء كول':'شراء بوت';
-  var txt=x.dir?sym+': زخم '+side+' على مدى '+seq(x.streak)+(x.streak>=+$('ms').value?' (تستحق المتابعة)':''):sym+': لا اتجاه واضح في آخر جلسة.';
+  var txt=x.low?sym+': الحجم الإجمالي صغير ('+P(x.tot)+') فلا تُحسب درجة.':x.bal?sym+': التدفق متوازن بين الكول والبوت في آخر جلسة (الفرق أقل من '+$('bal').value+'٪ من الإجمالي).':x.dir?sym+': زخم '+side+' على مدى '+seq(x.streak)+(x.streak>=+$('ms').value?' (تستحق المتابعة)':''):sym+': لا اتجاه واضح في آخر جلسة.';
   fx.innerHTML='<p class="'+(x.dir>0?'score up':x.dir<0?'score dn':'')+'" style="font-size:20px;margin:0 0 12px">'+txt+'</p><div style="display:flex;gap:6px;direction:ltr">'+cols+'</div><p class="note">خلال '+cnt(d.length)+': كول '+P(tc)+' مقابل بوت '+P(tp)+' — الغلبة '+(tc>tp?'للكول':tp>tc?'للبوت':'متعادلة')+'. الأعمدة العلوية كول والسفلية بوت.</p>';
 }
 function run(){
   var rows=parse($('csv').value);
   if(rows===null){$('out').innerHTML='<div class="empty">الأعمدة ناقصة. تأكد من: date, ticker, type, strike, expiry, volume, oi, price.</div>';return}
   if(!rows.length){$('out').innerHTML='<div class="empty">لا توجد صفوف صالحة.</div>';return}
-  CUR=analyze(rows,{mv:+$('mv').value,ratio:+$('ratio').value,mp:+$('mp').value,dte:+$('dte').value});render(CUR,+$('ms').value);focus();
+  CUR=analyze(rows,{mv:+$('mv').value,ratio:+$('ratio').value,mp:+$('mp').value,dte:+$('dte').value,mt:+$('mt').value,bal:+$('bal').value/100});render(CUR,+$('ms').value);focus();
 }
 function demo(){
   var s=7;function R(){s=(s*16807)%2147483647;return s/2147483647}
